@@ -1,4 +1,5 @@
 const database = require('../models')
+const Sequelize = require('sequelize')
 
 
 class PessoaController {
@@ -99,8 +100,9 @@ class PessoaController {
   static async listarMatriculas(req, res) {
     try {
       const { estudanteId } = req.params
-      const todasAsMatriculas = await database.Matriculas.findAll({ where: { estudante_id: Number(estudanteId) } })
-      return res.status(200).json(todasAsMatriculas)
+      const pessoa = await database.Pessoas.findOne({where: { id: Number(estudanteId) }})
+      const matriculas = await pessoa.getAulasMatriculadas()
+      return res.status(200).json(matriculas)
     } catch (error) {
       return res.status(500).json(error.message)
     }
@@ -173,7 +175,44 @@ class PessoaController {
       return res.status(500).json(error.message)
     }
   }
+  static async listarMatriculasPorTurma(req, res) {
+    try {
+      const { turmaId } = req.params
+      const todasAsMatriculas = await database.Matriculas
+      .findAndCountAll({ 
+        where: { 
+          turma_id: Number(turmaId),
+          status: 'confirmado'
+       },
+       limit: 20,
+       order:[['estudante_id','ASC']]
+      })
+      return res.status(200).json(todasAsMatriculas)
+    } catch (error) {
+      return res.status(500).json(error.message)
+    }
 
+  }
+  static async listaTurmasLotadas(req, res) {
+    try {
+      const lotacaoTurma = 2;
+
+      const turmasLotadas = await database.Matriculas
+      .findAndCountAll({
+        where: {
+          status: 'confirmado'
+        },
+        attributes: ['turma_id'],
+        group: ['turma_id'],
+        having: Sequelize.literal(`count(turma_id) >= ${lotacaoTurma} `)
+      })
+     
+      return res.status(200).json(turmasLotadas.count)
+    } catch (error) {
+      return res.status(500).json(error.message)
+    }
+
+  }
 }
 
 module.exports = PessoaController
